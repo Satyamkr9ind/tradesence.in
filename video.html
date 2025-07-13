@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CUSB Video Platform</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f9f9f9; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #333;
+      color: white;
+      padding: 10px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    header h1 { font-size: 20px; }
+    .upload-btn {
+      background: #ff5722;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .container {
+      display: flex;
+    }
+
+    .sidebar {
+      width: 250px;
+      background: #f0f0f0;
+      padding: 20px;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+    }
+    .sidebar.hidden { display: none; }
+    .account-section {
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    .main {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .video-card {
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    iframe {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
+
+    .comments { margin-top: 10px; }
+    .comment { font-size: 14px; margin-top: 8px; border-top: 1px solid #ccc; padding-top: 5px; }
+    .comment small { color: gray; font-size: 11px; }
+    .comment-input {
+      display: flex;
+      gap: 5px;
+      margin-top: 5px;
+    }
+    .comment-input input { flex-grow: 1; padding: 5px; }
+    .comment-input button { padding: 5px 10px; }
+
+    #uploadForm {
+      display: none;
+      position: fixed;
+      right: 20px;
+      top: 70px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      z-index: 1001;
+    }
+
+    #loginPopup {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 9999;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .sidebar-toggle { display: block; margin-right: 10px; cursor: pointer; }
+    }
+  </style>
+</head>
+<body onclick="hideUploadOnClick(event)">
+  <header>
+    <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
+    <h1>CUSB Video Platform</h1>
+    <button class="upload-btn" onclick="toggleUpload()">Upload</button>
+  </header>
+  <div class="container">
+    <div class="sidebar" id="sidebar">
+      <div class="account-section" id="accountInfo">Account</div>
+      <div id="topicFilters">Topics will load here...</div>
+    </div>
+    <div class="main">
+      <input type="text" id="searchInput" placeholder="Search videos..." style="width: 100%; padding: 10px; margin-bottom: 20px;">
+      <div class="video-grid" id="videosContainer"></div>
+    </div>
+  </div>
+
+  <div id="uploadForm">
+    <h3>Upload Video</h3>
+    <input type="text" id="videoLink" placeholder="Video Link"><br><br>
+    <input type="text" id="videoTitle" placeholder="Video Title"><br><br>
+    <input type="text" id="videoTopic" placeholder="Topic"><br><br>
+    <textarea id="videoDescription" placeholder="Description"></textarea><br><br>
+    <button onclick="uploadVideo()">Submit</button>
+  </div>
+
+  <div id="loginPopup">
+    <p>Please login to like, comment, or upload videos.</p>
+    <button onclick="signIn()">Login</button>
+    <button onclick="dismissPopup()">Not now</button>
+  </div>
+
+  <script>
+    const API = 'https://script.google.com/macros/s/AKfycby2t8hbvcGlz2eOETY5bE_Jx5bzMjtmT_V2BndpWOmdSTfdBmvqinHSt6k0Msj5d8R-/exec';
+    let user = null, access = false, videos = [], loginPromptActive = false;
+
+    function fetchVideos() {
+      fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getVideos' })
+      })
+      .then(res => res.json())
+      .then(data => {
+        videos = data;
+        renderVideos();
+        renderTopics();
+        renderAccountInfo();
+      });
+    }
+
+    function renderVideos() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const container = document.getElementById('videosContainer');
+      container.innerHTML = '';
+      const filtered = videos.filter(v => v.title.toLowerCase().includes(q) || v.description.toLowerCase().includes(q));
+      for (const v of filtered) {
+        const el = document.createElement('div');
+        el.className = 'video-card';
+        el.innerHTML = `
+          <iframe src="${v.link}" allowfullscreen></iframe>
+          <h3>${v.title}</h3>
+          <p><b>Topic:</b> ${v.topic} | <b>Date:</b> ${v.date}</p>
+          <p>${v.description}</p>
+          <button onclick="like('${v.link}')">👍 ${v.likes}</button>
+          <button onclick="dislike('${v.link}')">👎 ${v.dislikes}</button>
+          <div class="comments">
+            <h4>Comments</h4>
+            ${(v.comments || []).slice(0, 3).map(c => `
+              <div class="comment">
+                <b>${c.name}</b> <small>${c.date || 'Just now'}</small>
+                <div>${c.comment.length > 100 ? c.comment.slice(0, 100) + '... <span style=\"color:blue;cursor:pointer\" onclick=\"alert(\"' + c.comment.replace(/'/g, "") + '\")\">Read more</span>' : c.comment}</div>
+              </div>
+            `).join('')}
+            ${access ? `<div class="comment-input"><input id="comment-${v.link}" placeholder="Add comment..."><button onclick="addComment('${v.link}')">Post</button></div>` : ''}
+          </div>
+        `;
+        container.appendChild(el);
+      }
+    }
+
+    function renderTopics() {
+      const topics = [...new Set(videos.map(v => v.topic))];
+      document.getElementById('topicFilters').innerHTML = topics.map(t => `<div onclick="filterTopic('${t}')">${t}</div>`).join('');
+    }
+
+    function renderAccountInfo() {
+      const accountInfo = document.getElementById('accountInfo');
+      if (user) {
+        accountInfo.innerHTML = `${user.name}<br>${user.email}<br><button onclick="signOut()">Sign Out</button>`;
+      } else {
+        accountInfo.innerHTML = `<button onclick="signIn()">Login</button>`;
+      }
+    }
+
+    function filterTopic(topic) {
+      document.getElementById('searchInput').value = topic;
+      renderVideos();
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('hidden');
+    }
+
+    function toggleUpload() {
+      const form = document.getElementById('uploadForm');
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      if (form.style.display === 'block') form.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function hideUploadOnClick(e) {
+      const form = document.getElementById('uploadForm');
+      if (form.style.display === 'block' && !form.contains(e.target)) form.style.display = 'none';
+    }
+
+    function uploadVideo() {
+      const link = document.getElementById('videoLink').value.trim();
+      const title = document.getElementById('videoTitle').value.trim();
+      const topic = document.getElementById('videoTopic').value.trim();
+      const description = document.getElementById('videoDescription').value.trim();
+      if (!link || !title || !topic || !description) return alert('All fields are required');
+      fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'uploadVideo', link, title, topic, description, email: user?.email })
+      }).then(() => fetchVideos());
+    }
+
+    function like(link) {
+      if (!access) return showLoginPopup();
+      fetch(API, { method: 'POST', body: JSON.stringify({ action: 'likeDislike', type: 'like', link }) }).then(fetchVideos);
+    }
+
+    function dislike(link) {
+      if (!access) return showLoginPopup();
+      fetch(API, { method: 'POST', body: JSON.stringify({ action: 'likeDislike', type: 'dislike', link }) }).then(fetchVideos);
+    }
+
+    function addComment(link) {
+      const text = document.getElementById(`comment-${link}`).value.trim();
+      if (!text) return;
+      fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'addComment', link, comment: text, name: user?.name, email: user?.email })
+      }).then(fetchVideos);
+    }
+
+    function signIn() {
+      if (loginPromptActive) return;
+      loginPromptActive = true;
+      google.accounts.id.initialize({
+        client_id: '945896506384-1o2i2ckj2ecp2bjjnkoeii3md8fmsj5f.apps.googleusercontent.com',
+        callback: handleCredentialResponse
+      });
+      google.accounts.id.prompt();
+    }
+
+    function handleCredentialResponse(response) {
+      loginPromptActive = false;
+      const data = parseJwt(response.credential);
+      user = { name: data.name, email: data.email };
+      fetch(API, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getUserAccess', email: user.email })
+      })
+      .then(res => res.json())
+      .then(data => {
+        access = data.access;
+        user.name = data.name;
+        user.phone = data.mobile;
+        renderAccountInfo();
+        fetchVideos();
+      });
+    }
+
+    function parseJwt(token) {
+      const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    }
+
+    function signOut() {
+      user = null;
+      access = false;
+      loginPromptActive = false;
+      renderAccountInfo();
+      fetchVideos();
+    }
+
+    function showLoginPopup() {
+      const popup = document.getElementById('loginPopup');
+      popup.style.display = 'block';
+    }
+
+    function dismissPopup() {
+      const popup = document.getElementById('loginPopup');
+      popup.style.display = 'none';
+      loginPromptActive = false;
+      setTimeout(() => { if (!user) signIn(); }, 120000);
+    }
+
+    setTimeout(() => {
+      if (!user) signIn();
+    }, 180000);
+
+    fetchVideos();
+  </script>
+</body>
+</html>
