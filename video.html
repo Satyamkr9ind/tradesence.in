@@ -116,7 +116,6 @@
     <h1>CUSB Video Platform</h1>
     <button class="upload-btn" onclick="toggleUpload()">Upload</button>
   </header>
-
   <div class="container">
     <div class="sidebar" id="sidebar">
       <div class="account-section" id="accountInfo">Account</div>
@@ -144,7 +143,7 @@
   </div>
 
   <script>
-    const API = 'https://script.google.com/macros/s/AKfycby2t8hbvcGlz2eOETY5bE_Jx5bzMjtmT_V2BndpWOmdSTfdBmvqinHSt6k0Msj5d8R-/exec';
+    const API = 'https://script.google.com/macros/s/YOUR_DEPLOYED_URL/exec';
     let user = null, access = false, videos = [], loginPromptActive = false;
 
     function fetchVideos() {
@@ -180,8 +179,8 @@
             <h4>Comments</h4>
             ${(v.comments || []).slice(0, 3).map(c => `
               <div class="comment">
-                <b>${c.name}</b> <small>${c.timestamp || 'Just now'}</small>
-                <div>${c.comment.length > 100 ? c.comment.slice(0, 100) + '... <span style=\"color:blue;cursor:pointer\" onclick=\"alert('${c.comment.replace(/'/g, "")}')\">Read more</span>' : c.comment}</div>
+                <b>${c.name}</b> <small>${c.timestamp}</small>
+                <div>${c.comment.length > 100 ? c.comment.slice(0, 100) + '... <span style=\"color:blue;cursor:pointer\" onclick=\"alert(\"' + c.comment.replace(/'/g, '') + '\")\">Read more</span>' : c.comment}</div>
               </div>
             `).join('')}
             ${access ? `<div class="comment-input"><input id="comment-${v.link}" placeholder="Add comment..."><button onclick="addComment('${v.link}')">Post</button></div>` : ''}
@@ -260,7 +259,7 @@
       if (loginPromptActive) return;
       loginPromptActive = true;
       google.accounts.id.initialize({
-        client_id: '945896506384-1o2i2ckj2ecp2bjjnkoeii3md8fmsj5f.apps.googleusercontent.com',
+        client_id: 'YOUR_GOOGLE_CLIENT_ID',
         callback: handleCredentialResponse
       });
       google.accounts.id.prompt();
@@ -269,11 +268,7 @@
     function handleCredentialResponse(response) {
       loginPromptActive = false;
       const data = parseJwt(response.credential);
-      user = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone_number || ''
-      };
+      user = { name: data.name, email: data.email, phone: data.phone_number || '' };
 
       fetch(API, {
         method: 'POST',
@@ -281,7 +276,7 @@
           action: 'getUserAccess',
           email: user.email,
           name: user.name,
-          mobile: user.phone || ''
+          mobile: user.phone
         })
       })
       .then(res => res.json())
