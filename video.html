@@ -116,6 +116,7 @@
     <h1>CUSB Video Platform</h1>
     <button class="upload-btn" onclick="toggleUpload()">Upload</button>
   </header>
+
   <div class="container">
     <div class="sidebar" id="sidebar">
       <div class="account-section" id="accountInfo">Account</div>
@@ -179,8 +180,8 @@
             <h4>Comments</h4>
             ${(v.comments || []).slice(0, 3).map(c => `
               <div class="comment">
-                <b>${c.name}</b> <small>${c.date || 'Just now'}</small>
-                <div>${c.comment.length > 100 ? c.comment.slice(0, 100) + '... <span style=\"color:blue;cursor:pointer\" onclick=\"alert(\"' + c.comment.replace(/'/g, "") + '\")\">Read more</span>' : c.comment}</div>
+                <b>${c.name}</b> <small>${c.timestamp || 'Just now'}</small>
+                <div>${c.comment.length > 100 ? c.comment.slice(0, 100) + '... <span style=\"color:blue;cursor:pointer\" onclick=\"alert('${c.comment.replace(/'/g, "")}')\">Read more</span>' : c.comment}</div>
               </div>
             `).join('')}
             ${access ? `<div class="comment-input"><input id="comment-${v.link}" placeholder="Add comment..."><button onclick="addComment('${v.link}')">Post</button></div>` : ''}
@@ -268,17 +269,27 @@
     function handleCredentialResponse(response) {
       loginPromptActive = false;
       const data = parseJwt(response.credential);
-      user = { name: data.name, email: data.email };
+      user = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone_number || ''
+      };
+
       fetch(API, {
         method: 'POST',
-        body: JSON.stringify({ action: 'getUserAccess', email: user.email })
+        body: JSON.stringify({
+          action: 'getUserAccess',
+          email: user.email,
+          name: user.name,
+          mobile: user.phone || ''
+        })
       })
       .then(res => res.json())
       .then(data => {
         if (!data.access) {
           fetch(API, {
             method: 'POST',
-            body: JSON.stringify({ action: 'signup', name: user.name, email: user.email, mobile: '' })
+            body: JSON.stringify({ action: 'signup', name: user.name, email: user.email, mobile: user.phone })
           }).then(() => {
             access = true;
             renderAccountInfo();
