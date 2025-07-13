@@ -275,11 +275,22 @@
       })
       .then(res => res.json())
       .then(data => {
-        access = data.access;
-        user.name = data.name;
-        user.phone = data.mobile;
-        renderAccountInfo();
-        fetchVideos();
+        if (!data.access) {
+          fetch(API, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'signup', name: user.name, email: user.email, mobile: '' })
+          }).then(() => {
+            access = true;
+            renderAccountInfo();
+            fetchVideos();
+          });
+        } else {
+          access = true;
+          user.name = data.name;
+          user.phone = data.mobile;
+          renderAccountInfo();
+          fetchVideos();
+        }
       });
     }
 
