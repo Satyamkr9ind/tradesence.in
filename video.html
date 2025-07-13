@@ -143,7 +143,7 @@
   </div>
 
   <script>
-    const API = 'https://script.google.com/macros/s/YOUR_DEPLOYED_URL/exec';
+    const API = 'https://script.google.com/macros/s/AKfycby2t8hbvcGlz2eOETY5bE_Jx5bzMjtmT_V2BndpWOmdSTfdBmvqinHSt6k0Msj5d8R-/exec';
     let user = null, access = false, videos = [], loginPromptActive = false;
 
     function fetchVideos() {
@@ -259,7 +259,7 @@
       if (loginPromptActive) return;
       loginPromptActive = true;
       google.accounts.id.initialize({
-        client_id: 'YOUR_GOOGLE_CLIENT_ID',
+        client_id: '945896506384-1o2i2ckj2ecp2bjjnkoeii3md8fmsj5f.apps.googleusercontent.com',
         callback: handleCredentialResponse
       });
       google.accounts.id.prompt();
